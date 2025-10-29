@@ -26,6 +26,49 @@ This document summarizes two approaches for leveraging Xero bank feeds while str
 - Typical automation steps include authenticating to the source system, extracting and transforming transaction data, and posting the resulting bank rules or pre-coded transactions to Xero via its API.
 - The architecture can follow an **Extract → Transform → Upload → Reconcile** loop, optionally leveraging OAuth-based authorization for client accounts.
 
+### Provided helper script: `xero_reconcile.py`
+
+- Use the included CLI to express reusable AND/OR rule logic in JSON or YAML and apply it to exported bank feed CSV files.
+- Invoke it with `python xero_reconcile.py rules.yaml bank_feed.csv coded.csv --summary` to generate a Xero-ready CSV that records which rule(s) matched each transaction.
+- Rules support nested `all`/`any` conditions and can populate any of the import columns (Contact, Account Code, Tax Rate, Tracking, etc.).
+- Example YAML snippet:
+
+  ```yaml
+  rules:
+    - name: Office supplies
+      priority: 10
+      match:
+        all:
+          - field: description
+            operator: icontains
+            value: staples
+          - field: amount
+            operator: lt
+            value: 0
+      set:
+        contact: Staples
+        account_code: 420
+        tax_rate: GST on Expenses
+        tracking: Admin
+        reference: Office supplies
+    - name: Client retainers
+      match:
+        any:
+          - field: description
+            operator: icontains
+            value: retainer
+          - field: reference
+            operator: icontains
+            value: retainer
+      set:
+        account_code: 200
+        tax_rate: No GST
+        contact: Acme Ltd
+        tracking: Sales
+  ```
+
+- Add `--strict` to fail the run when transactions remain unmatched or `--unmatched unmatched.csv` to export exceptions for manual review.
+
 ## 3. Choosing an approach
 
 - Prefer Xero’s native bank rules when rule logic can be expressed purely with `AND` conditions and when administration through Excel plus the API is manageable.
